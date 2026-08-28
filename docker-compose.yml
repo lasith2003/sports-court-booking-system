@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL Database ────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: courthub_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: courthub
+      POSTGRES_USER: courthub
+      POSTGRES_PASSWORD: courthub
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U courthub']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── NestJS Backend ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: courthub_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://courthub:courthub@postgres:5432/courthub
+      NODE_ENV: production
+    ports:
+      - '3001:3001'
+    command: >
+      sh -c "npx prisma migrate deploy && node dist/main"
+
+  # ── Next.js Frontend ───────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: courthub_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    env_file:
+      - .env
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    ports:
+      - '3000:3000'
+
+  # ── Redis Cache (Phase 2 — uncomment when ready) ───────────────
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: courthub_redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - '6379:6379'
+  #   volumes:
+  #     - redis_data:/data
+
+volumes:
+  pg_data:
+  # redis_data:    # Phase 2
