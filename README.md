@@ -2,7 +2,7 @@
 
 > A production-quality multi-vendor sports court booking platform — built as a full-stack portfolio project.
 
-[![CI](https://github.com/YOUR_USERNAME/courthub/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/courthub/actions/workflows/ci.yml)
+[![CI](https://github.com/lasith2003/sports-court-booking-system/actions/workflows/ci.yml/badge.svg)](https://github.com/lasith2003/sports-court-booking-system/actions/workflows/ci.yml)
 
 ---
 
@@ -62,8 +62,8 @@ If two requests race through simultaneously, the DB unique constraint rejects th
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/courthub.git
-cd courthub
+git clone https://github.com/lasith2003/sports-court-booking-system.git
+cd sports-court-booking-system
 
 # 2. Set up environment
 cp .env.example .env
