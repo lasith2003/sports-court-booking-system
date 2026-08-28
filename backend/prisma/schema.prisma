@@ -1,0 +1,128 @@
+// datasource and generator
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ── Enums ──────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  VENUE_OWNER
+  CUSTOMER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum SportType {
+  BADMINTON
+  TENNIS
+  FUTSAL
+  BASKETBALL
+  SQUASH
+  CRICKET_NET
+}
+
+// ── Models ─────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  password     String
+  role         Role      @default(CUSTOMER)
+  refreshToken String?
+  venues       Venue[]
+  bookings     Booking[]
+  reviews      Review[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Venue {
+  id          String   @id @default(uuid())
+  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  name        String
+  address     String
+  city        String
+  description String?
+  imageUrl    String?
+  courts      Court[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Court {
+  id           String    @id @default(uuid())
+  venue        Venue     @relation(fields: [venueId], references: [id])
+  venueId      String
+  name         String
+  sportType    SportType
+  pricePerHour Decimal
+  openingTime  String // e.g. "06:00"
+  closingTime  String // e.g. "22:00"
+  imageUrl     String?
+  bookings     Booking[]
+  reviews      Review[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([sportType])
+}
+
+model Booking {
+  id         String        @id @default(uuid())
+  customer   User          @relation(fields: [customerId], references: [id])
+  customerId String
+  court      Court         @relation(fields: [courtId], references: [id])
+  courtId    String
+  date       DateTime // booking date (date-only, stored as DateTime at midnight UTC)
+  startTime  String // e.g. "14:00"
+  endTime    String // e.g. "15:00"
+  status     BookingStatus @default(PENDING)
+  totalPrice Decimal
+  payment    Payment?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([courtId, date, startTime]) // prevents double-booking at DB level
+  @@index([customerId])
+}
+
+model Payment {
+  id        String        @id @default(uuid())
+  booking   Booking       @relation(fields: [bookingId], references: [id])
+  bookingId String        @unique
+  amount    Decimal
+  status    PaymentStatus @default(PENDING)
+  method    String? // e.g. "mock_card"
+  createdAt DateTime      @default(now())
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  customer   User     @relation(fields: [customerId], references: [id])
+  customerId String
+  court      Court    @relation(fields: [courtId], references: [id])
+  courtId    String
+  rating     Int // 1–5
+  comment    String?
+  createdAt  DateTime @default(now())
+}
