@@ -6,13 +6,17 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { BookingStatus, PaymentStatus, Role } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
 @Injectable()
 export class BookingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // ═══════════════════════════════════════════════════════════════
   // ⭐ CREATE — Concurrency-Safe Booking (The Key Feature)
@@ -236,9 +240,21 @@ export class BookingsService {
       );
     }
 
+    // Fetch customer email for notification
+    const customer = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+
+    // Fetch court + venue details for notification
+    const courtDetails = await this.prisma.court.findUnique({
+      where: { id: booking.courtId },
+      include: { venue: { select: { name: true } } },
+    });
+
     // Cancel booking + refund payment in a transaction
-    return this.prisma.$transaction(async (tx) => {
-      const cancelled = await tx.booking.update({
+    const cancelled = await this.prisma.$transaction(async (tx) => {
+      const cancelledBooking = await tx.booking.update({
         where: { id: bookingId },
         data: { status: BookingStatus.CANCELLED },
       });
@@ -250,8 +266,24 @@ export class BookingsService {
         });
       }
 
-      return cancelled;
+      return cancelledBooking;
     });
+
+    // ── Fire-and-forget: Cancellation email notification ─────────
+    if (customer && courtDetails) {
+      void this.notifications.sendBookingCancelled(customer.email, {
+        customerName: customer.name,
+        venueName: courtDetails.venue.name,
+        courtName: courtDetails.name,
+        date: booking.date.toISOString().split('T')[0],
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        bookingId: booking.id,
+        refundStatus: booking.payment ? 'REFUNDED' : 'NO_REFUND',
+      });
+    }
+
+    return cancelled;
   }
 
   // ── PATCH /bookings/:id/confirm (Venue Owner) ─────────────────

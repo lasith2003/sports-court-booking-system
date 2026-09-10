@@ -5,11 +5,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { BookingStatus, PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // ── Mock Payment Confirmation ─────────────────────────────────
   /**
@@ -78,6 +82,33 @@ export class PaymentsService {
         },
       }),
     ]);
+
+    // ── Fire-and-forget: Booking confirmed + Payment receipt emails ──
+    // Fetch customer for email address
+    const customer = await this.prisma.user.findUnique({
+      where: { id: customerId },
+      select: { email: true, name: true },
+    });
+
+    if (customer && updatedBooking.court) {
+      const ctx = {
+        customerName: customer.name,
+        venueName: updatedBooking.court.venue.name,
+        courtName: updatedBooking.court.name,
+        city: updatedBooking.court.venue.city,
+        date: updatedBooking.date.toISOString().split('T')[0],
+        startTime: updatedBooking.startTime,
+        endTime: updatedBooking.endTime,
+        totalPrice: updatedPayment.amount.toString(),
+        bookingId: updatedBooking.id,
+        amount: updatedPayment.amount.toString(),
+        paymentMethod: updatedPayment.method,
+      };
+
+      // Send both emails — booking confirmation + payment receipt
+      void this.notifications.sendBookingConfirmed(customer.email, ctx);
+      void this.notifications.sendPaymentReceived(customer.email, ctx);
+    }
 
     return {
       message: 'Payment confirmed successfully. Booking is now CONFIRMED.',
