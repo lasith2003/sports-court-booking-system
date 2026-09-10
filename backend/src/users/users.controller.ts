@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Param,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -29,7 +22,10 @@ export class UsersController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get current authenticated user profile' })
-  @ApiResponse({ status: 200, description: 'Current user profile (no password)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current user profile (no password)',
+  })
   getMe(@CurrentUser() user: { id: string }) {
     return this.usersService.findMe(user.id);
   }

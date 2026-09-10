@@ -37,14 +37,17 @@ export class BookingsController {
       '⭐ Concurrency-safe: uses a DB transaction with row-level locking + ' +
       'unique constraint to prevent double-booking. Returns 409 if slot is taken.',
   })
-  @ApiResponse({ status: 201, description: 'Booking created (status: PENDING)' })
-  @ApiResponse({ status: 400, description: 'Invalid slot / outside opening hours' })
+  @ApiResponse({
+    status: 201,
+    description: 'Booking created (status: PENDING)',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid slot / outside opening hours',
+  })
   @ApiResponse({ status: 404, description: 'Court not found' })
   @ApiResponse({ status: 409, description: 'Slot already booked — conflict' })
-  create(
-    @Body() dto: CreateBookingDto,
-    @CurrentUser() user: { id: string },
-  ) {
+  create(@Body() dto: CreateBookingDto, @CurrentUser() user: { id: string }) {
     return this.bookingsService.create(dto, user.id);
   }
 
@@ -75,10 +78,17 @@ export class BookingsController {
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({
     summary: '[CUSTOMER / ADMIN] Cancel a booking',
-    description: 'Customer can cancel up to 1 hour before the slot. Admin can cancel anytime.',
+    description:
+      'Customer can cancel up to 1 hour before the slot. Admin can cancel anytime.',
   })
-  @ApiResponse({ status: 200, description: 'Booking cancelled, payment refunded' })
-  @ApiResponse({ status: 400, description: 'Cannot cancel (too late or already completed)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking cancelled, payment refunded',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot cancel (too late or already completed)',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — not your booking' })
   cancel(
     @Param('id') id: string,
@@ -94,10 +104,7 @@ export class BookingsController {
   @ApiResponse({ status: 200, description: 'Booking confirmed' })
   @ApiResponse({ status: 400, description: 'Booking is not in PENDING status' })
   @ApiResponse({ status: 403, description: 'Forbidden — not your venue' })
-  confirm(
-    @Param('id') id: string,
-    @CurrentUser() user: { id: string },
-  ) {
+  confirm(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.bookingsService.confirm(id, user.id);
   }
 

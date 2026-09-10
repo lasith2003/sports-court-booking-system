@@ -49,7 +49,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Rotate JWT tokens using a valid refresh token' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
-  refreshTokens(@CurrentUser() user: { id: string; email: string; role: string }) {
+  refreshTokens(
+    @CurrentUser() user: { id: string; email: string; role: string },
+  ) {
     return this.authService.refreshTokens(user.id, user.email, user.role);
   }
 

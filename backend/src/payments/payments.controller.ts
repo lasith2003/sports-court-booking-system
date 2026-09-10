@@ -33,7 +33,10 @@ export class PaymentsController {
     status: 201,
     description: 'Payment confirmed. Booking is now CONFIRMED.',
   })
-  @ApiResponse({ status: 400, description: 'Booking/payment already in non-PENDING state' })
+  @ApiResponse({
+    status: 400,
+    description: 'Booking/payment already in non-PENDING state',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden — not your booking' })
   @ApiResponse({ status: 404, description: 'Booking or payment not found' })
   confirmPayment(

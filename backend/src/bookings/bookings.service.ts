@@ -33,124 +33,128 @@ export class BookingsService {
    *   violation which we catch and re-throw as a 409 ConflictException.
    */
   async create(dto: CreateBookingDto, customerId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      // ── 1. Lock the Court row (SELECT FOR UPDATE) ─────────────
-      // While this transaction is open, any other transaction trying
-      // to lock the same court row will WAIT — preventing races.
-      const courts = await tx.$queryRaw<
-        Array<{
-          id: string;
-          pricePerHour: string;
-          openingTime: string;
-          closingTime: string;
-          venueId: string;
-        }>
-      >`SELECT id, "pricePerHour", "openingTime", "closingTime", "venueId"
+    return this.prisma
+      .$transaction(async (tx) => {
+        // ── 1. Lock the Court row (SELECT FOR UPDATE) ─────────────
+        // While this transaction is open, any other transaction trying
+        // to lock the same court row will WAIT — preventing races.
+        const courts = await tx.$queryRaw<
+          Array<{
+            id: string;
+            pricePerHour: string;
+            openingTime: string;
+            closingTime: string;
+            venueId: string;
+          }>
+        >`SELECT id, "pricePerHour", "openingTime", "closingTime", "venueId"
         FROM "Court"
         WHERE id = ${dto.courtId}
         FOR UPDATE`;
 
-      if (!courts || courts.length === 0) {
-        throw new NotFoundException(`Court ${dto.courtId} not found`);
-      }
+        if (!courts || courts.length === 0) {
+          throw new NotFoundException(`Court ${dto.courtId} not found`);
+        }
 
-      const court = courts[0];
+        const court = courts[0];
 
-      // ── 2. Validate slot is within court opening hours ─────────
-      const [startHour] = dto.startTime.split(':').map(Number);
-      const [endHour] = dto.endTime.split(':').map(Number);
-      const [openHour] = court.openingTime.split(':').map(Number);
-      const [closeHour] = court.closingTime.split(':').map(Number);
+        // ── 2. Validate slot is within court opening hours ─────────
+        const [startHour] = dto.startTime.split(':').map(Number);
+        const [endHour] = dto.endTime.split(':').map(Number);
+        const [openHour] = court.openingTime.split(':').map(Number);
+        const [closeHour] = court.closingTime.split(':').map(Number);
 
-      if (startHour < openHour || endHour > closeHour) {
-        throw new BadRequestException(
-          `Slot must be within court hours: ${court.openingTime} - ${court.closingTime}`,
+        if (startHour < openHour || endHour > closeHour) {
+          throw new BadRequestException(
+            `Slot must be within court hours: ${court.openingTime} - ${court.closingTime}`,
+          );
+        }
+
+        if (endHour - startHour !== 1) {
+          throw new BadRequestException(
+            'Booking duration must be exactly 1 hour',
+          );
+        }
+
+        // ── 3. Parse booking date (midnight UTC) ───────────────────
+        const parsedDate = new Date(dto.date);
+        if (isNaN(parsedDate.getTime())) {
+          throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
+        }
+        const bookingDate = new Date(
+          Date.UTC(
+            parsedDate.getFullYear(),
+            parsedDate.getMonth(),
+            parsedDate.getDate(),
+          ),
         );
-      }
 
-      if (endHour - startHour !== 1) {
-        throw new BadRequestException('Booking duration must be exactly 1 hour');
-      }
+        // ── 4. Application-level conflict check ────────────────────
+        // Belt-and-suspenders check BEFORE attempting the insert.
+        // Even if two requests passed the lock, this catches duplicates.
+        const conflict = await tx.booking.findFirst({
+          where: {
+            courtId: dto.courtId,
+            date: bookingDate,
+            startTime: dto.startTime,
+            status: { not: BookingStatus.CANCELLED },
+          },
+        });
 
-      // ── 3. Parse booking date (midnight UTC) ───────────────────
-      const parsedDate = new Date(dto.date);
-      if (isNaN(parsedDate.getTime())) {
-        throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
-      }
-      const bookingDate = new Date(
-        Date.UTC(
-          parsedDate.getFullYear(),
-          parsedDate.getMonth(),
-          parsedDate.getDate(),
-        ),
-      );
+        if (conflict) {
+          throw new ConflictException(
+            'This time slot is already booked. Please choose another slot.',
+          );
+        }
 
-      // ── 4. Application-level conflict check ────────────────────
-      // Belt-and-suspenders check BEFORE attempting the insert.
-      // Even if two requests passed the lock, this catches duplicates.
-      const conflict = await tx.booking.findFirst({
-        where: {
-          courtId: dto.courtId,
-          date: bookingDate,
-          startTime: dto.startTime,
-          status: { not: BookingStatus.CANCELLED },
-        },
-      });
+        // ── 5. Calculate total price ───────────────────────────────
+        // Duration is always 1 hour, so price = pricePerHour × 1
+        const totalPrice = new Decimal(court.pricePerHour);
 
-      if (conflict) {
-        throw new ConflictException(
-          'This time slot is already booked. Please choose another slot.',
-        );
-      }
-
-      // ── 5. Calculate total price ───────────────────────────────
-      // Duration is always 1 hour, so price = pricePerHour × 1
-      const totalPrice = new Decimal(court.pricePerHour);
-
-      // ── 6. Create Booking (status: PENDING) ───────────────────
-      // If a race condition somehow slipped through steps 1-4,
-      // the @@unique([courtId, date, startTime]) DB constraint will
-      // reject this INSERT with a unique violation → caught below.
-      const booking = await tx.booking.create({
-        data: {
-          customerId,
-          courtId: dto.courtId,
-          date: bookingDate,
-          startTime: dto.startTime,
-          endTime: dto.endTime,
-          status: BookingStatus.PENDING,
-          totalPrice,
-        },
-        include: {
-          court: {
-            include: {
-              venue: { select: { id: true, name: true, city: true } },
+        // ── 6. Create Booking (status: PENDING) ───────────────────
+        // If a race condition somehow slipped through steps 1-4,
+        // the @@unique([courtId, date, startTime]) DB constraint will
+        // reject this INSERT with a unique violation → caught below.
+        const booking = await tx.booking.create({
+          data: {
+            customerId,
+            courtId: dto.courtId,
+            date: bookingDate,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            status: BookingStatus.PENDING,
+            totalPrice,
+          },
+          include: {
+            court: {
+              include: {
+                venue: { select: { id: true, name: true, city: true } },
+              },
             },
           },
-        },
-      });
+        });
 
-      // ── 7. Create Payment record (status: PENDING) ─────────────
-      await tx.payment.create({
-        data: {
-          bookingId: booking.id,
-          amount: totalPrice,
-          status: PaymentStatus.PENDING,
-          method: 'mock_card',
-        },
-      });
+        // ── 7. Create Payment record (status: PENDING) ─────────────
+        await tx.payment.create({
+          data: {
+            bookingId: booking.id,
+            amount: totalPrice,
+            status: PaymentStatus.PENDING,
+            method: 'mock_card',
+          },
+        });
 
-      return booking;
-    }).catch((error) => {
-      // Catch Prisma unique constraint violation (P2002)
-      // This is the DB-level double-booking safety net
-      if (error?.code === 'P2002') {
-        throw new ConflictException(
-          'This time slot was just booked by someone else. Please choose another slot.',
-        );
-      }
-      throw error;
-    });
+        return booking;
+      })
+      .catch((error) => {
+        // Catch Prisma unique constraint violation (P2002)
+        // This is the DB-level double-booking safety net
+        if (error?.code === 'P2002') {
+          throw new ConflictException(
+            'This time slot was just booked by someone else. Please choose another slot.',
+          );
+        }
+        throw error;
+      });
   }
 
   // ── GET /bookings/me (Customer — own bookings) ────────────────
@@ -172,7 +176,9 @@ export class BookingsService {
   // ── GET /bookings/venue/:venueId (Venue Owner — their venue's bookings) ──
   async findByVenue(venueId: string, ownerId: string) {
     // Verify ownership
-    const venue = await this.prisma.venue.findUnique({ where: { id: venueId } });
+    const venue = await this.prisma.venue.findUnique({
+      where: { id: venueId },
+    });
     if (!venue) throw new NotFoundException('Venue not found');
     if (venue.ownerId !== ownerId) {
       throw new ForbiddenException('You do not own this venue');

@@ -55,10 +55,7 @@ export class VenuesController {
   @ApiOperation({ summary: '[VENUE_OWNER] Create a new venue' })
   @ApiResponse({ status: 201, description: 'Venue created' })
   @ApiResponse({ status: 403, description: 'Forbidden — Venue Owner only' })
-  create(
-    @Body() dto: CreateVenueDto,
-    @CurrentUser() user: { id: string },
-  ) {
+  create(@Body() dto: CreateVenueDto, @CurrentUser() user: { id: string }) {
     return this.venuesService.create(dto, user.id);
   }
 

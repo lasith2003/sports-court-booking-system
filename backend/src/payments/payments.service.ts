@@ -42,7 +42,9 @@ export class PaymentsService {
 
     // 2. Ownership check — only the booking's customer can pay
     if (booking.customerId !== customerId) {
-      throw new ForbiddenException('You cannot pay for another customer\'s booking');
+      throw new ForbiddenException(
+        "You cannot pay for another customer's booking",
+      );
     }
 
     // 3. Check booking is still PENDING

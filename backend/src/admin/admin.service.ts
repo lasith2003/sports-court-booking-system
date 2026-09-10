@@ -82,7 +82,9 @@ export class AdminService {
   }
 
   async deleteVenue(venueId: string) {
-    const venue = await this.prisma.venue.findUnique({ where: { id: venueId } });
+    const venue = await this.prisma.venue.findUnique({
+      where: { id: venueId },
+    });
     if (!venue) throw new NotFoundException('Venue not found');
     await this.prisma.venue.delete({ where: { id: venueId } });
     return { message: `Venue "${venue.name}" has been removed` };

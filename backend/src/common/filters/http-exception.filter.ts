@@ -27,14 +27,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const message =
       exceptionResponse && typeof exceptionResponse === 'object'
-        ? (exceptionResponse as Record<string, unknown>).message ?? 'Internal server error'
+        ? ((exceptionResponse as Record<string, unknown>).message ??
+          'Internal server error')
         : exception instanceof Error
           ? exception.message
           : 'Internal server error';
 
     const error =
       exceptionResponse && typeof exceptionResponse === 'object'
-        ? (exceptionResponse as Record<string, unknown>).error ?? 'Error'
+        ? ((exceptionResponse as Record<string, unknown>).error ?? 'Error')
         : 'Internal Server Error';
 
     if (status >= 500) {

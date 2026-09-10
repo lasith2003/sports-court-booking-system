@@ -32,7 +32,9 @@ export class CourtsService {
   // ── Create (Venue Owner) ──────────────────────────────────────
   async create(venueId: string, dto: CreateCourtDto, userId: string) {
     // Verify the venue exists and belongs to this user
-    const venue = await this.prisma.venue.findUnique({ where: { id: venueId } });
+    const venue = await this.prisma.venue.findUnique({
+      where: { id: venueId },
+    });
     if (!venue) throw new NotFoundException(`Venue ${venueId} not found`);
     if (venue.ownerId !== userId) {
       throw new ForbiddenException('You do not own this venue');
@@ -50,7 +52,14 @@ export class CourtsService {
 
   // ── Search / List (public, with filters) ─────────────────────
   async findAll(filters: CourtSearchFilters) {
-    const { sportType, city, minPrice, maxPrice, page = 1, limit = 10 } = filters;
+    const {
+      sportType,
+      city,
+      minPrice,
+      maxPrice,
+      page = 1,
+      limit = 10,
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -60,8 +69,10 @@ export class CourtsService {
     }
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.pricePerHour = {};
-      if (minPrice !== undefined) where.pricePerHour.gte = new Decimal(minPrice);
-      if (maxPrice !== undefined) where.pricePerHour.lte = new Decimal(maxPrice);
+      if (minPrice !== undefined)
+        where.pricePerHour.gte = new Decimal(minPrice);
+      if (maxPrice !== undefined)
+        where.pricePerHour.lte = new Decimal(maxPrice);
     }
 
     const [courts, total] = await Promise.all([
@@ -70,7 +81,9 @@ export class CourtsService {
         skip,
         take: limit,
         include: {
-          venue: { select: { id: true, name: true, city: true, address: true } },
+          venue: {
+            select: { id: true, name: true, city: true, address: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),

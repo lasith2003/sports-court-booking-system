@@ -96,10 +96,7 @@ export class CourtsController {
     status: 200,
     description: 'Array of { startTime, endTime, isAvailable } slot objects',
   })
-  getAvailability(
-    @Param('id') id: string,
-    @Query('date') date: string,
-  ) {
+  getAvailability(@Param('id') id: string, @Query('date') date: string) {
     return this.courtsService.getAvailability(id, date);
   }
 

@@ -94,7 +94,8 @@ export class AdminController {
   @Patch('bookings/:id/cancel')
   @ApiOperation({
     summary: '[ADMIN] Force-cancel any booking',
-    description: 'Admin can cancel any booking regardless of time cutoff rules.',
+    description:
+      'Admin can cancel any booking regardless of time cutoff rules.',
   })
   @ApiResponse({ status: 200, description: 'Booking cancelled by admin' })
   @ApiResponse({ status: 404, description: 'Booking not found' })

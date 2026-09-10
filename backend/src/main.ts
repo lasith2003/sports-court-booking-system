@@ -1,4 +1,4 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as helmet from 'helmet';
@@ -24,9 +24,9 @@ async function bootstrap() {
   // ── Global Pipes ──────────────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,       // strip unknown properties
+      whitelist: true, // strip unknown properties
       forbidNonWhitelisted: true,
-      transform: true,       // auto-transform to DTO class instances
+      transform: true, // auto-transform to DTO class instances
       transformOptions: {
         enableImplicitConversion: true,
       },
@@ -45,7 +45,7 @@ async function bootstrap() {
     .setTitle('CourtHub API')
     .setDescription(
       'Sports Court Booking System — REST API documentation.\n\n' +
-      'Use the **Authorize** button to set your Bearer JWT token.',
+        'Use the **Authorize** button to set your Bearer JWT token.',
     )
     .setVersion('1.0')
     .addBearerAuth()

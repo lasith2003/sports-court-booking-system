@@ -17,7 +17,9 @@ export class CreateVenueDto {
   @IsNotEmpty()
   city: string;
 
-  @ApiPropertyOptional({ example: 'Premium indoor sports facility with 6 courts' })
+  @ApiPropertyOptional({
+    example: 'Premium indoor sports facility with 6 courts',
+  })
   @IsString()
   @IsOptional()
   description?: string;
