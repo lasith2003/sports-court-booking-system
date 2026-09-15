@@ -62,3 +62,8 @@ infrastructure/node_modules/
 
 # Misc
 .cache/
+
+# AI Agent files
+AGENTS.md
+CLAUDE.md
+
